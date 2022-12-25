@@ -11,14 +11,14 @@ from tqdm.auto import tqdm
 
 # Torch-vision
 import torch
-from torch.utils.data import Dataset, DataLoader
-from torchvision.transforms import ToTensor
 
 # Ignite
 from ignite.engine import Engine
 from ignite.metrics import Loss, SSIM, FID, MeanAbsoluteError
 from ignite.utils import manual_seed
 from ignite.handlers import Timer
+
+from .dataloader import get_data_loader
 
 torch.manual_seed(42)
 
@@ -41,17 +41,19 @@ def setup_metrics(opts):
     return metrics
 
 def evaluate_metrics(opts, metrics):
-    # Call Dataloader 
-    # data = DataLoader()
+    dataloader = get_data_loader(path_pred=f"{opts.predictions_dir}", 
+                            path_gt=f"{opts.targets_dir}",
+                            batch_size=2)
     # Fine grained control -> enable rolling calcs
-    for y_pred, y in data:
+    for i,  (y_pred, y) in enumerate(dataloader):
+        print(f"Batch: {i+1} | y_pred.shape: {y_pred.shape} | y.shape: {y.shape}")
         for metric, metric_value in metrics.items(): 
             metrics[metric] = metric_value.update((y_pred, y))
     
     save_eval_results(opts.exp_name, metrics)
 
 def save_eval_results(RUN_NAME: str, metrics: dict):
-    with open(f"results_{RUN_NAME}") as f:
+    with open(f"results/{RUN_NAME}.txt") as f:
         f.write("Evaluation Metrics:")
         for k,v in metrics.items():
             f.write(f"{k} = {v}")
@@ -76,7 +78,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     if args.exp_name is None:
-        args.exp_name = Path(f"evaluation_runs/logs-{datetime.now().strftime('%Y%m%d_%H_%M_%S')}/")
+        args.exp_name = Path(f"eval_run-{datetime.now().strftime('%Y%m%d_%H_%M_%S')}/")
 
     assert args.targets_dir is not None, f"[!] Targets' Directory not specified. Usage: ./evaluate.py -td <target_dir>"
     assert args.predictions_dir is not None, f"[!] Predictions' Directory not specified. Usage: ./evaluate.py -pd <preds_dir>"

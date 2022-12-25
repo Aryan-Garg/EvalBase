@@ -1,5 +1,3 @@
-#!/usr/bin/python
-
 import os
 from pathlib import Path
 
@@ -31,7 +29,7 @@ class CustomDataset(Dataset):
         if load2RAM:
             self.data_in_RAM = True
             import multiprocessing
-            from tqdm import tqdm
+            from tqdm.auto import tqdm
             pool = multiprocessing.Pool()
 
             loaderName = "evaluation"
@@ -67,7 +65,7 @@ class CustomDataset(Dataset):
         return pred, gt
 
 
-def get_data_loaders(path_pred, path_gt, batch_size):
+def get_data_loader(path_pred: str, path_gt: str, batch_size: int):
     tensor_transform = Compose([ToTensor()])
     if batch_size:
         dataloader = DataLoader(
