@@ -1,0 +1,12 @@
+*.mov
+*.md
+results/
+*.tar.gz
+*.zip
+*.pkl
+*.pyc
+*.exr
+*.mp4
+*.png
+*.jpeg
+*.jpg
