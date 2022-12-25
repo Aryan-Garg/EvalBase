@@ -1,0 +1,26 @@
+version: '3.4'
+
+services:
+  skynet:
+    image: skynet
+    container_name: skynet
+    build:
+      context: ..
+      dockerfile: ./.docker/Dockerfile
+      args:
+        USER_NAME: toor
+        USER_UID: 1
+        GROUP_ID: 1
+    stdin_open: true
+    tty: true
+    
+    volumes:
+      - ..:/workspace
+      - ${HOME}/.ssh:${HOME}/.ssh:ro
+      - ${HOME}/.gitconfig:${HOME}/.gitconfig:ro
+      - /tmp/.X11-unix:/tmp/.X11-unix:ro
+    
+    # Forwards container port to host port 
+    ports:
+      - 6006:6006
+      - 5678:5678

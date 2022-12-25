@@ -1,0 +1,39 @@
+version: '3.4'
+
+services:
+  skynet:
+    image: skynet
+    container_name: skynet
+    build:
+      context: ..
+      dockerfile: ./.docker/Dockerfile
+      args:
+        USER_NAME: toor
+        USER_UID: 1
+        GROUP_ID: 0
+    stdin_open: true
+    tty: true
+    
+    volumes:
+      - ..:/workspace
+      - ${HOME}/.ssh:${HOME}/.ssh:ro
+      - $HOME/.gitconfig:${HOME}/.gitconfig:ro
+      - /tmp/.X11-unix:/tmp/.X11-unix:ro
+    
+    # Forwards container port to host port 
+    ports:
+      - 6006:6006
+      - 5678:5678  
+
+  skynet_gpu:
+    container_name: skynet
+    image: skynet
+    depends_on:
+      - skynet
+      
+    # The following lines define the NVIDIA runtime and gives the container access to all available GPU devices on the host.
+    # <!> Warning: If you don't have a GPU, the container will not start.
+    runtime: nvidia
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=all
