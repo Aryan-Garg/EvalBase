@@ -5,7 +5,7 @@
 
 CONTAINER_TAG="eval"
 CONTAINER_NAME="aryan_$CONTAINER_TAG" # Suggest "your_name_$CONTAINER_TAG" as a custom container name (can be anything), else it will be random. Cannot have duplicates. 
-MOUNT_DIRECTORY_HOST="" # Can be left as "" if not desired. Mounts your project folder.
+MOUNT_DIRECTORY_HOST="$(pwd)" # Can be left as "" if not desired. Mounts your project folder.
 MOUNT_DIRECTORY_CONTAINER="/workspace" # Where MOUNT_HOST_DIRECTORY will be located in the container
 GPU_SELECTION="--gpus all" # Select the GPU hardware to use  --gpus '"device=0,2"' OR --gpus all
 
