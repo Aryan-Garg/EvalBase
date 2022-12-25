@@ -31,7 +31,7 @@ def setup_metrics(opts):
         metrics["fid"] = FID()
     if opts.ssim:
         # For tmed output (HDR)
-        metrics["ssim"] = SSIM(data_range=16.)
+        metrics["ssim"] = SSIM(data_range=1.0)
     if opts.l1:
         metrics["l1"] = MeanAbsoluteError()
 
