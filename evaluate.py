@@ -14,13 +14,24 @@ import torch
 
 # Ignite
 from ignite.engine import Engine
-from ignite.metrics import Loss, SSIM, FID, MeanAbsoluteError
+from ignite.metrics import Loss, SSIM, FID, MeanAbsoluteError, InceptionScore
 from ignite.utils import manual_seed
 from ignite.handlers import Timer
 
 from dataloader import get_data_loader
 
+# Specific Losses like lpips?
+import lpips
+# from lpipBase import PerceptualLoss ---> Can live without this too ;)
+
 torch.manual_seed(42)
+
+# TODO: Has to be global. Find a better way to initialize it:
+lpips_vgg = lpips.LPIPS(net='vgg')
+
+def evaluator_lpips_loss(y_pred, y):
+    loss = lpips_vgg.forward(y_pred, y)
+    return loss.mean()
 
 def setup_metrics(opts):
     # Define & Initializer metrics in dictionary
@@ -34,6 +45,10 @@ def setup_metrics(opts):
         metrics["ssim"] = SSIM(data_range=1.0)
     if opts.l1:
         metrics["l1"] = MeanAbsoluteError()
+    if opts.iscore:
+        metrics["is"] = InceptionScore()
+    if opts.lpips:
+        metrics["lpips"] = Loss(evaluator_lpips_loss)
 
     # Reset to double check
     for k in metrics:
@@ -46,11 +61,14 @@ def evaluate_metrics(opts, metrics):
                             path_gt=f"{opts.targets_dir}",
                             batch_size=opts.batch_size)
     # Fine grained control -> enable rolling calcs
-    for i,  (y_pred, y) in enumerate(dataloader):
-        print(f"Batch {i+1} :: y_pred.shape: {y_pred.shape} | y.shape: {y.shape}")
+    for i,  (y_pred, y) in tqdm(enumerate(dataloader)):
+        print(f"\nBatch {i+1} :: y_pred.shape: {y_pred.shape} | y.shape: {y.shape}")
         for metric in metrics:
+            if metric is 'is':
+                metrics[metric].update(y_pred)
+            else:
+                metrics[metric].update((y_pred, y))
             # print(f"Before: {metric} = {metrics[metric]}") 
-            metrics[metric].update((y_pred, y))
     
     for metric in metrics:
         metrics[metric] = metrics[metric].compute()
@@ -62,10 +80,10 @@ def save_eval_results(RUN_NAME: str, metrics: dict):
         for k,v in metrics.items():
             f.write(f"{k} = {v}\n")
 
+
 def run(opts):
     metrics = setup_metrics(opts)
     evaluate_metrics(opts, metrics)
-    pass
 
 if __name__ == "__main__":
     parser = ArgumentParser(prog = 'Evaluation Metrics',
@@ -80,6 +98,8 @@ if __name__ == "__main__":
     parser.add_argument('--fid', action='store_true', default=True)
     parser.add_argument('--ssim', action='store_true', default=True)
     parser.add_argument('--l1', action='store_true', default=True)
+    parser.add_argument('--iscore', action='store_true', default=True)
+    parser.add_argument('--lpips', action='store_true', default=True)
 
     args = parser.parse_args()
 
@@ -91,4 +111,4 @@ if __name__ == "__main__":
 
     run(args)
 
-# ./evaluate.py -en test_run_1 -td datasets/dummy_verification_ds/targets/ -pd datasets/dummy_verification_ds/predictions/ -bs 2 --fid --ssim --l1
+# ./evaluate.py -en test_run_4 -td datasets/dummy_verification_ds/targets/ -pd datasets/dummy_verification_ds/predictions/ -bs 2
