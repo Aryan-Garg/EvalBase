@@ -14,65 +14,65 @@ import torch
 
 # Ignite
 from ignite.engine import Engine
-from ignite.metrics import Loss, SSIM, FID, MeanAbsoluteError, InceptionScore
+from ignite.metrics import Loss, SSIM, FID, MeanAbsoluteError, InceptionScore, PSNR
 from ignite.utils import manual_seed
 from ignite.handlers import Timer
 
 from dataloader import get_data_loader
 
-# Specific Losses like lpips?
+
+# Setup seed to have same model's initialization:
+manual_seed(31415)
+
+# Hardware
+device = "cpu"
+if torch.cuda.is_available():
+    device = "cuda"
+print("Evaluating on device: {}".format(device))
+
+
 import lpips
-# from lpipBase import PerceptualLoss ---> Can live without this too ;)
+lpips_vgg = None
 
-torch.manual_seed(42)
+def process_function(engine, batch):
+    # Get batch
+    y_pred, y = batch
+    y_pred = y_pred.to(device)
+    y = y.to(device)
+    return y_pred, y
 
-# TODO: Has to be global. Find a better way to initialize it:
-lpips_vgg = lpips.LPIPS(net='vgg')
-
-def evaluator_lpips_loss(y_pred, y):
+def evaluator_loss_lpips(y_pred, y):
     loss = lpips_vgg.forward(y_pred, y)
     return loss.mean()
+
+def formatter_IS(output):
+    y_pred, y = output
+    return y_pred  # output format is according to `Accuracy` docs
 
 def setup_metrics(opts):
     # Define & Initializer metrics in dictionary
     metrics=dict()
 
-    ### TODO: Add more metrics here
+    # Default (Sanity) Metric
+    metrics["PSNR"] = PSNR(data_range=1.0, device=device)
+
+    # ### TODO: Add more metrics here
     if opts.fid:
-        metrics["fid"] = FID()
+        metrics["FID"] = FID(device=device)
     if opts.ssim:
         # For tmed output (HDR)
-        metrics["ssim"] = SSIM(data_range=1.0)
+        metrics["SSIM"] = SSIM(data_range=1.0, device=device)
     if opts.l1:
-        metrics["l1"] = MeanAbsoluteError()
+        metrics["L1"] = MeanAbsoluteError(device=device)
     if opts.iscore:
-        metrics["is"] = InceptionScore()
+        metrics["IS"] = InceptionScore(output_transform=formatter_IS,device=device)
     if opts.lpips:
-        metrics["lpips"] = Loss(evaluator_lpips_loss)
-
-    # Reset to double check
-    for k in metrics:
-        metrics[k].reset()
+        global lpips_vgg
+        lpips_vgg = lpips.LPIPS(net='vgg').to(device)
+        metrics["lpips"] = Loss(evaluator_loss_lpips,device=device)
 
     return metrics
 
-def evaluate_metrics(opts, metrics):
-    dataloader = get_data_loader(path_pred=f"{opts.predictions_dir}", 
-                            path_gt=f"{opts.targets_dir}",
-                            batch_size=opts.batch_size)
-    # Fine grained control -> enable rolling calcs
-    for i,  (y_pred, y) in tqdm(enumerate(dataloader)):
-        print(f"\nBatch {i+1} :: y_pred.shape: {y_pred.shape} | y.shape: {y.shape}")
-        for metric in metrics:
-            if metric is 'is':
-                metrics[metric].update(y_pred)
-            else:
-                metrics[metric].update((y_pred, y))
-            # print(f"Before: {metric} = {metrics[metric]}") 
-    
-    for metric in metrics:
-        metrics[metric] = metrics[metric].compute()
-    save_eval_results(opts.exp_name, metrics)
 
 def save_eval_results(RUN_NAME: str, metrics: dict):
     with open(f"results/{RUN_NAME}.txt", "a") as f:
@@ -82,17 +82,35 @@ def save_eval_results(RUN_NAME: str, metrics: dict):
 
 
 def run(opts):
+    engine = Engine(process_function)
     metrics = setup_metrics(opts)
-    evaluate_metrics(opts, metrics)
+    for k in metrics:
+        metrics[k].attach(engine, k)
+
+
+    dataloader = get_data_loader(path_pred=f"{opts.predictions_dir}", 
+                            path_gt=f"{opts.targets_dir}",
+                            batch_size=opts.batch_size,
+                            max_samples=100 if opts.testing else None)
+
+    # Run evaluation
+    state = engine.run(dataloader)
+    for k in metrics:
+        print(f"{k}: {state.metrics[k]}")
+
+    # Save results
+    save_eval_results(opts.exp_name, metrics)
+
 
 if __name__ == "__main__":
     parser = ArgumentParser(prog = 'Evaluation Metrics',
                     description = 'Runs Evaluation Metrics on results. (Stand-alone evaluator)',
                     epilog = 'Rights reserved by professor Jean-Francois Lalonde')
     parser.add_argument('-en','--exp_name', type=str, default=None, help="Name of experiment. Used for saving results.")
-    parser.add_argument('-td', '--targets_dir', type=str, default=None, help="GT directory.")
-    parser.add_argument('-pd', '--predictions_dir', type=str, default=None, help="Predictions' dir.")
-    parser.add_argument('-bs', '--batch_size', type=int, default=2, help="Batch Size.")
+    parser.add_argument('-T', '--testing', action='store_true', default=False, help="Caps the number of samples to 100 for testing purposes")
+    parser.add_argument('-td', '--targets_dir', type=str, default="data/GT", help="GT directory.")
+    parser.add_argument('-pd', '--predictions_dir', type=str, default="data/PRED", help="Predictions' dir.")
+    parser.add_argument('-bs', '--batch_size', type=int, default=15, help="Batch Size.")
     
     # Metric Options
     parser.add_argument('--fid', action='store_true', default=True)

@@ -1,6 +1,5 @@
 *.mov
 *.md
-results/
 *.tar.gz
 *.zip
 *.pkl
