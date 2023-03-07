@@ -40,8 +40,9 @@ def evaluator_lpips_loss(y_pred, y):
     loss = lpips_vgg.forward(y_pred, y)
     return loss.mean()
 
-def pil_img(batch):
+def pil_img(batch, index=0, name="P"):
     arr = []
+    counter = 0
     for img in batch:
         pil_img = torchvision.transforms.ToPILImage()(img)
 
@@ -51,6 +52,13 @@ def pil_img(batch):
         pil_img = torchvision.transforms.ToTensor()(pil_img)
         pil_img = pil_img.mul(255).byte()      
 
+        save_PIL = Image.fromarray(pil_img.numpy(), mode='RGB')
+        if name == "P":
+            save_PIL.save(f"datasets/FID_pred/test_b{index}_{counter}.png")
+        else:
+            save_PIL.save(f"datasets/FID_pred/test_b{index}_{counter}.png")
+
+        counter += 1
         arr.append(pil_img)
     return torch.stack(arr)
 
@@ -69,11 +77,8 @@ def run(opts):
     inception = InceptionScore(device=device)
 
     for i,  (y_pred, y) in enumerate(tqdm(dataloader)):
-        y_pred_2 = pil_img(y_pred)
-        y_2 = pil_img(y)
-
-        y_2.save(f"datasets/FID_ref/test_{i}.png")
-        y_pred_2.save(f"datasets/FID_pred/test_{i}.png")
+        y_pred_2 = pil_img(y_pred, i, "P")
+        y_2 = pil_img(y, i, "R")
 
         y_pred_2 = y_pred_2.to(device)
         y_2 = y_2.to(device)
@@ -118,7 +123,7 @@ def run(opts):
     print(f"PSNR: {psnr_score}")
 
     # save all the metrics in a text file with experiment name
-    with open(f"{opts.exp_name}/metrics.txt", "w") as f:
+    with open(f"results/{opts.exp_name}/metrics.txt", "w") as f:
         f.write(f"L1: {l1_score}")
         f.write(f"SSIM: {ssim_score}")
         f.write(f"FID: {fid_score}")

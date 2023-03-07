@@ -27,7 +27,12 @@ import lpips
 torch.manual_seed(42)
 
 # TODO: Has to be global. Find a better way to initialize it:
-lpips_vgg = lpips.LPIPS(net='vgg')
+
+
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+if device == torch.device("cuda"):
+    lpips_vgg = lpips.LPIPS(net='vgg').cuda()
 
 def evaluator_lpips_loss(y_pred, y):
     loss = lpips_vgg.forward(y_pred, y)
@@ -39,16 +44,16 @@ def setup_metrics(opts):
 
     ### TODO: Add more metrics here
     if opts.fid:
-        metrics["fid"] = FID()
+        metrics["fid"] = FID(device=device)
     if opts.ssim:
         # For tmed output (HDR)
-        metrics["ssim"] = SSIM(data_range=1.0)
+        metrics["ssim"] = SSIM(data_range=1.0, device=device)
     if opts.l1:
-        metrics["l1"] = MeanAbsoluteError()
+        metrics["l1"] = MeanAbsoluteError(device=device)
     if opts.iscore:
-        metrics["is"] = InceptionScore()
+        metrics["is"] = InceptionScore(device=device)
     if opts.lpips:
-        metrics["lpips"] = Loss(evaluator_lpips_loss)
+        metrics["lpips"] = Loss(evaluator_lpips_loss, device=device)
 
     # Reset to double check
     for k in metrics:
@@ -61,8 +66,10 @@ def evaluate_metrics(opts, metrics):
                             path_gt=f"{opts.targets_dir}",
                             batch_size=opts.batch_size)
     # Fine grained control -> enable rolling calcs
-    for i,  (y_pred, y) in tqdm(enumerate(dataloader)):
-        print(f"\nBatch {i+1} :: y_pred.shape: {y_pred.shape} | y.shape: {y.shape}")
+    for i,  (y_pred, y) in enumerate(tqdm(dataloader)):
+        # print(f"\nBatch {i+1} :: y_pred.shape: {y_pred.shape} | y.shape: {y.shape}")
+        y_pred = y_pred.to(device)
+        y = y.to(device)
         for metric in metrics:
             if metric is 'is':
                 metrics[metric].update(y_pred)
@@ -71,7 +78,15 @@ def evaluate_metrics(opts, metrics):
             # print(f"Before: {metric} = {metrics[metric]}") 
     
     for metric in metrics:
-        metrics[metric] = metrics[metric].compute()
+        try:
+            metrics[metric] = metrics[metric].compute()
+            print(metric, metrics[metric])
+        except Exception as inst:
+            print(type(inst))
+            print(inst.args)
+            print(inst)
+            print(f"Inf/NaNs encountered :(\n")
+
     save_eval_results(opts.exp_name, metrics)
 
 def save_eval_results(RUN_NAME: str, metrics: dict):
@@ -111,4 +126,4 @@ if __name__ == "__main__":
 
     run(args)
 
-# ./evaluate.py -en test_run_4 -td datasets/dummy_verification_ds/targets/ -pd datasets/dummy_verification_ds/predictions/ -bs 2
+# ./evaluate.py -en full_test_SPADE -td datasets/full_pysolar_test/full_gt_test/ -pd datasets/full_pysolar_test/synthesized_image/ -bs 2
