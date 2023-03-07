@@ -22,9 +22,8 @@ from pytorch_fid import fid_score, inception
 from fid import FID
 from dataloader import get_data_loader
 
-# Specific Losses like lpips?
+# Specific Losses like lpips
 import lpips
-# from lpipBase import PerceptualLoss ---> Can live without this too ;)
 
 torch.manual_seed(42)
 
@@ -99,6 +98,11 @@ def run(opts):
         fid_samples.append([y_pred_2, y_2])
 
         if i % 100 == 0:
+            with open(f"results/{opts.exp_name}/metrics.txt", "w") as f:
+                f.write(f"L1: {l1[:-1]}")
+                f.write(f"SSIM: {ssim_b[:-1]}")
+                f.write(f"Inception Score: {iscore[:-1]}")
+                f.write(f"LPIPS: {lpips[:-1]}")
             print(f"L1: {l1[:-1]} | SSIM: {ssim_b[:-1]} | IS: {iscore[:-1]} | LPIPS: {lpips[:-1]}")
 
     # calculate mean of each metric and obtain the scalar value
