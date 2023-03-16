@@ -90,25 +90,25 @@ def run(opts):
 
         this_ssim = torchmetrics.functional.structural_similarity_index_measure(y_pred, y)
         ssim_b.append(this_ssim)
-        this_is = inception.update(y_pred_2)
-        iscore.append(this_is)
+        # this_is = inception.update(y_pred_2)
+        # iscore.append(this_is)
 
         lpips.append(evaluator_lpips_loss(y_pred_2, y_2))
         # to compute all at once (FID):
         fid_samples.append([y_pred_2, y_2])
 
-        if i % 100 == 0:
-            with open(f"results/{opts.exp_name}/metrics.txt", "w") as f:
+        if i % 20 == 0:
+            with open(f"results/{opts.exp_name}.txt", "w") as f:
                 f.write(f"L1: {l1[:-1]}")
                 f.write(f"SSIM: {ssim_b[:-1]}")
-                f.write(f"Inception Score: {iscore[:-1]}")
+                # f.write(f"Inception Score: {iscore[:-1]}")
                 f.write(f"LPIPS: {lpips[:-1]}")
-            print(f"L1: {l1[:-1]} | SSIM: {ssim_b[:-1]} | IS: {iscore[:-1]} | LPIPS: {lpips[:-1]}")
+            # print(f"L1: {l1[:-1]} | SSIM: {ssim_b[:-1]} | IS: {iscore[:-1]} | LPIPS: {lpips[:-1]}")
 
     # calculate mean of each metric and obtain the scalar value
     l1_score = l1.mean().item()
     ssim_score = ssim_b.mean().item()
-    iscore_score = inception.compute()
+    # iscore_score = inception.compute()
     lpips_score = lpips.mean().item()
     psnr_score = 10 * torch.log10(1/l1)
 
@@ -127,11 +127,11 @@ def run(opts):
     print(f"PSNR: {psnr_score}")
 
     # save all the metrics in a text file with experiment name
-    with open(f"results/{opts.exp_name}/metrics.txt", "w") as f:
-        f.write(f"L1: {l1_score}")
+    with open(f"results/{opts.exp_name}/metrics.txt", "a") as f:
+        f.write(f"\n\n***\nL1: {l1_score}")
         f.write(f"SSIM: {ssim_score}")
         f.write(f"FID: {fid_score}")
-        f.write(f"Inception Score: {iscore_score}")
+        # f.write(f"Inception Score: {iscore_score}")
         f.write(f"LPIPS: {lpips_score}")
         f.write(f"PSNR: {psnr_score}")
 
