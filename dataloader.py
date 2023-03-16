@@ -11,20 +11,21 @@ from torchvision.transforms import Compose, ToTensor, Normalize
 os.environ["OPENCV_IO_ENABLE_OPENEXR"]="1"
 
 class CustomDataset(Dataset):
-    def __init__(self, path_pred: str, path_gt: str, image_transform, label_transform, load2RAM=False):
+    def __init__(self, path_pred: str, path_gt: str, image_transform, load2RAM=False, max_samples=None):
         self.gt_root = Path(path_gt)
         self.pred_root = Path(path_pred) 
 
         # Get Paths. DO NOT COMMENT OUT!
-        self.data_in_RAM = False
-        pred_paths = sorted(list(self.pred_root.glob("*.exr")))
-        gt_paths = sorted(list(self.gt_root.glob("*.exr")))
-            
-        self.data = list(zip(pred_paths, gt_paths))
+        pred_paths = list(self.pred_root.glob("*.exr"))
+        gt_paths = list(self.gt_root.glob("*.exr"))
+
+        if max_samples is not None and len(pred_paths) > max_samples:
+            pred_paths = pred_paths[:max_samples]
+            gt_paths = gt_paths[:max_samples]
 
         # [OPTIONAL] Load images into RAM -- OFF by default
+        self.data_in_RAM = load2RAM
         if load2RAM:
-            self.data_in_RAM = True
             import multiprocessing
             from tqdm.auto import tqdm
             pool = multiprocessing.Pool()
@@ -34,6 +35,8 @@ class CustomDataset(Dataset):
             preds = tqdm(pool.imap(self.loadSkydome_spade, pred_paths, chunksize=100), total=len(pred_paths))
             gts = tqdm(pool.imap(self.loadSkydome_spade, gt_paths, chunksize=100), total=len(gt_paths))
             self.data = list(zip(preds, gts))
+        else:
+            self.data = list(zip(pred_paths, gt_paths))
         
         # Transforms
         self.image_transform = image_transform
@@ -75,4 +78,9 @@ def get_data_loader(path_pred: str, path_gt: str, batch_size: int):
     else: 
         dataloader = None
 
+    dataloader = DataLoader(
+        CustomDataset(path_pred=path_pred, path_gt=path_gt, image_transform=tensor_transform, max_samples=max_samples),
+        batch_size=batch_size,
+        shuffle=True
+    )
     return dataloader

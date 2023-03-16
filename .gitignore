@@ -1,6 +1,5 @@
 *.mov
 *.md
-results/
 *.tar.gz
 *.zip
 *.pkl
@@ -10,3 +9,4 @@ results/
 *.png
 *.jpeg
 *.jpg
+/results/**
